@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#18130f" />
+    <title>Rash Roads — v0.6 True 3D Foundation</title>
+  </head>
+  <body>
+    <div id="app">
+      <div id="hud">
+        <div class="hud-top">
+          <div class="stat-chip">ROAD <strong id="distance">0.00 km</strong></div>
+          <div class="stat-chip">NEAR <strong id="near">0</strong></div>
+          <div class="stat-chip">HITS <strong id="hits">0</strong></div>
+          <div class="speed-chip"><strong id="speed">0</strong><span>KM/H</span></div>
+        </div>
+        <div class="meter-stack">
+          <div class="meter-row"><span>HP</span><div class="meter"><i id="hp"></i></div></div>
+          <div class="meter-row"><span>N2O</span><div class="meter nitro"><i id="nitro"></i></div></div>
+        </div>
+        <div class="brand">RASH <b>ROADS</b><small>TRUE 3D // ACID ASPHALT</small></div>
+        <div class="hint">A / D steer · S brake · SHIFT nitro</div>
+        <div id="impact" class="impact"></div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
