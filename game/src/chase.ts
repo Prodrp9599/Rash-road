@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { TrafficKind } from './config';
+import { chasePressureForLevel } from './difficulty';
 
 export const CHASE={
   startGap:58,
@@ -70,9 +71,10 @@ export function updateChase(
 ){
   if(state.busted){state.bustedFor+=dt;return}
 
-  // Difficulty is deliberately stepped: every completed kilometre raises pressure one level,
-  // capped by the director in difficulty.ts. This is easier for players to feel and for us to tune.
-  const stepPressure=Math.max(0,difficultyLevel-1)*.11;
+  // K9 pace rises one step per kilometre. At Heat 7 normal top-speed riding
+  // only barely protects the lead; at Heat 8 it slowly loses ground.
+  // Nitro therefore becomes the reliable way to open meaningful breathing room.
+  const stepPressure=chasePressureForLevel(difficultyLevel);
   let delta=0;
   if(speed>=CHASE.escapePace){
     const fast=THREE.MathUtils.clamp((speed-CHASE.escapePace)/20,0,1);
