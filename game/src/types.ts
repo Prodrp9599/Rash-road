@@ -5,6 +5,9 @@ export type TrafficEntity = {
   kind: TrafficKind;
   lane: number;
   targetLane: number;
+  pendingLane: number | null;
+  indicatorDir: -1 | 0 | 1;
+  indicatorTimer: number;
   x: number;
   z: number;
   speed: number;
