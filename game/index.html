@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="theme-color" content="#18130f" />
-    <title>Rash Roads — v0.7 Hero Rider Scene</title>
+    <title>Rash Roads — v0.8 Endless Chase</title>
   </head>
   <body>
     <div id="app">
@@ -12,16 +12,23 @@
         <div class="hud-top">
           <div class="stat-chip">ROAD <strong id="distance">0.00 km</strong></div>
           <div class="stat-chip">NEAR <strong id="near">0</strong></div>
-          <div class="stat-chip">HITS <strong id="hits">0</strong></div>
+          <div class="stat-chip">CRASHES <strong id="hits">0</strong></div>
           <div class="speed-chip"><strong id="speed">0</strong><span>KM/H</span></div>
         </div>
+
         <div class="meter-stack">
-          <div class="meter-row"><span>HP</span><div class="meter"><i id="hp"></i></div></div>
+          <div id="pursuit" class="pursuit-card safe">
+            <div class="pursuit-head"><span>K9 PATROL</span><strong id="pursuitLabel">58 m</strong></div>
+            <div class="pursuit-track"><i id="pursuitFill"></i><b class="cop-marker">★</b></div>
+            <small>KEEP THE GAP OPEN</small>
+          </div>
           <div class="meter-row"><span>N2O</span><div class="meter nitro"><i id="nitro"></i></div></div>
         </div>
-        <div class="brand">RASH <b>ROADS</b><small>v0.7 // HERO RIDER SCENE</small></div>
+
+        <div class="brand">RASH <b>ROADS</b><small>v0.8 // ENDLESS CHASE</small></div>
         <div class="hint">A / D steer · S brake · SHIFT nitro · R reset</div>
         <div id="impact" class="impact"></div>
+        <div id="busted" class="busted"><strong>BUSTED</strong><span>K9 PATROL CAUGHT UP</span></div>
       </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
