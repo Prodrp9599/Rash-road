@@ -1,41 +1,60 @@
 import * as THREE from 'three';
-import { CHASE, createChaseState, updateChase } from './chase';
-import { PLAYER } from './config';
+import { applyTrafficPenalty, createChaseState, updateChase } from './chase';
 import { createCrashState, startCrash, updateCrash } from './crash';
 import { DIFFICULTY, difficultyForDistance } from './difficulty';
 
 function assert(condition:boolean,message:string){if(!condition)throw new Error(message)}
 
-// Difficulty must step exactly once per kilometre and then cap.
-for(let km=0;km<DIFFICULTY.maxLevel+3;km++){
+// Difficulty must step once per kilometre through km 15 and then cap.
+for(let km=0;km<22;km++){
   const d=difficultyForDistance(km*1000+.01);
   const expected=Math.min(DIFFICULTY.maxLevel,km+1);
   assert(d.level===expected,`difficulty ${km}km expected ${expected}, got ${d.level}`);
 }
-assert(difficultyForDistance(99_000).maxed,'difficulty must cap at max level');
+const start=difficultyForDistance(0);
+const km4=difficultyForDistance(4_001);
+const km15=difficultyForDistance(15_001);
+const km40=difficultyForDistance(40_000);
+assert(km4.normalMaxSpeed>start.normalMaxSpeed,'speed must noticeably ramp by km 4');
+assert(km15.normalMaxSpeed===km40.normalMaxSpeed,'speed must cap after km 15');
+assert(km15.heat===DIFFICULTY.maxHeat,'visible Heat must reach its cap by the late game');
+assert(km15.spawnMin<start.spawnMin,'late traffic spacing must be denser than early traffic spacing');
 
-// High heat must close the police gap faster than level 1 at the same cruising speed.
-const easy=createChaseState(),hard=createChaseState();
-for(let i=0;i<600;i++){
-  updateChase(easy,1/60,31,1,false,false);
-  updateChase(hard,1/60,31,DIFFICULTY.maxLevel,false,false);
-}
-assert(hard.gap<easy.gap,'max heat must apply more pursuit pressure');
-assert(easy.gap>=0&&easy.gap<=CHASE.maxGap,'easy chase gap out of bounds');
-assert(hard.gap>=0&&hard.gap<=CHASE.maxGap,'hard chase gap out of bounds');
+// Proximity system: roughly three ordinary car mistakes in quick succession end a run.
+const strikes=createChaseState();
+applyTrafficPenalty(strikes,'car',.6,false);
+assert(!strikes.busted,'one ordinary car mistake must not bust the player');
+applyTrafficPenalty(strikes,'car',.6,false);
+assert(!strikes.busted,'two ordinary car mistakes must remain recoverable');
+applyTrafficPenalty(strikes,'car',.6,false);
+assert(strikes.busted,'three ordinary car mistakes should be enough to get caught');
 
-// External playtest tuning: by Heat 7-8, normal max-speed riding should no longer
-// rebuild a large safety buffer. Heat 8 should slowly lose gap without nitro.
-const heat7=createChaseState(),heat8=createChaseState(),heat8Nitro=createChaseState();
-const start7=heat7.gap,start8=heat8.gap,start8Nitro=heat8Nitro.gap;
-for(let i=0;i<300;i++){
-  updateChase(heat7,1/60,PLAYER.maxSpeed,7,false,false);
-  updateChase(heat8,1/60,PLAYER.maxSpeed,8,false,false);
-  updateChase(heat8Nitro,1/60,PLAYER.nitroMaxSpeed,8,true,false);
-}
-assert(heat7.gap-start7<1.0,'Heat 7 normal top speed should only barely open the gap');
-assert(heat8.gap<start8,'Heat 8 normal top speed should slowly lose pursuit gap');
-assert(heat8Nitro.gap>start8Nitro,'Heat 8 nitro must still open pursuit distance');
+// Glancing side scrapes are forgiving and should not behave like full crashes.
+const scrapes=createChaseState();
+for(let i=0;i<3;i++)applyTrafficPenalty(scrapes,'car',.2,true);
+assert(!scrapes.busted,'three light side scrapes should not equal three full crashes');
+
+// Clean riding recovers proximity after the grace period; nitro accelerates recovery.
+const clean=createChaseState();
+applyTrafficPenalty(clean,'car',.6,false);
+const afterHit=clean.threat;
+for(let i=0;i<1200;i++)updateChase(clean,1/60,start.normalMaxSpeed,start.safePace,start.recoveryRate,false,false);
+assert(clean.threat<afterHit*.25,'sustained clean riding should substantially recover pursuit proximity');
+
+const nitro=createChaseState();
+applyTrafficPenalty(nitro,'car',.6,false);
+for(let i=0;i<300;i++)updateChase(nitro,1/60,start.nitroMaxSpeed,start.safePace,start.recoveryRate,true,false);
+assert(nitro.threat<afterHit*.35,'nitro should quickly create breathing room after a mistake');
+
+// Critical late-game fairness rule: max difficulty never catches perfect normal-top-speed play by itself.
+const late=createChaseState();
+for(let i=0;i<3600;i++)updateChase(late,1/60,km15.normalMaxSpeed,km15.safePace,km15.recoveryRate,false,false);
+assert(!late.busted&&late.threat<.01,'late game must not contain unavoidable police catch-up at normal top speed');
+
+// Slowing well below the safe pace still lets the K9 close in.
+const slow=createChaseState();
+for(let i=0;i<1200;i++)updateChase(slow,1/60,20,km4.safePace,km4.recoveryRate,false,false);
+assert(slow.threat>1,'sustained slow riding must increase police proximity');
 
 // Ejection lifecycle must always recover back to mounted without external intervention.
 const scene=new THREE.Scene();
@@ -53,12 +72,13 @@ assert(crash.phase==='mounted','crash recovery must end mounted');
 assert(mountedRider.visible,'mounted rider must be restored after recovery');
 assert(Math.abs(player.position.z)<.001,'bike must return to gameplay anchor after remount');
 
-console.log('Rash Roads logic checks passed:',{
-  maxDifficulty:DIFFICULTY.maxLevel,
-  easyGap:Number(easy.gap.toFixed(2)),
-  hardGap:Number(hard.gap.toFixed(2)),
-  heat7TopSpeedGap:Number(heat7.gap.toFixed(2)),
-  heat8TopSpeedGap:Number(heat8.gap.toFixed(2)),
-  heat8NitroGap:Number(heat8Nitro.gap.toFixed(2)),
+console.log('Rash Roads v0.9.2 logic checks passed:',{
+  startTopSpeed:start.normalMaxSpeed,
+  km4TopSpeed:km4.normalMaxSpeed,
+  cappedTopSpeed:km15.normalMaxSpeed,
+  threeMistakesBust:strikes.busted,
+  cleanRecovery:Number(clean.threat.toFixed(2)),
+  nitroRecovery:Number(nitro.threat.toFixed(2)),
+  latePerfectThreat:Number(late.threat.toFixed(2)),
   crashRecovery:'mounted',
 });
