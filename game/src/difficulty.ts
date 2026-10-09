@@ -7,6 +7,11 @@ export const DIFFICULTY={
   aggressiveVeerStart:4,
 };
 
+// Pursuit pressure is deliberately hand-tuned per kilometre instead of being linear.
+// Heat 7 is almost pace-matched with Rocco at normal top speed; Heat 8 slightly
+// outpaces normal riding. Nitro remains the reliable way to reopen the gap.
+export const CHASE_PRESSURE_BY_LEVEL=[0,.14,.30,.48,.68,.90,1.14,1.28] as const;
+
 export type DifficultyState={
   level:number;
   maxLevel:number;
@@ -21,6 +26,11 @@ export type DifficultyState={
   trafficReaction:number;
 };
 
+export function chasePressureForLevel(level:number){
+  const index=THREE.MathUtils.clamp(Math.round(level),1,DIFFICULTY.maxLevel)-1;
+  return CHASE_PRESSURE_BY_LEVEL[index];
+}
+
 export function difficultyForDistance(distanceMeters:number):DifficultyState{
   const level=Math.min(DIFFICULTY.maxLevel,Math.floor(Math.max(0,distanceMeters)/DIFFICULTY.metersPerLevel)+1);
   const progress=(level-1)/(DIFFICULTY.maxLevel-1);
@@ -34,8 +44,7 @@ export function difficultyForDistance(distanceMeters:number):DifficultyState{
     // but the escape-lane invariant in main.ts still prevents impossible three-lane walls.
     spawnMin:THREE.MathUtils.lerp(27,19,progress),
     spawnJitter:THREE.MathUtils.lerp(31,18,progress),
-    // Step pressure: changes only when the kilometre level changes.
-    chasePressure:(level-1)*.11,
+    chasePressure:chasePressureForLevel(level),
     weaveAmplitude:level<DIFFICULTY.aggressiveVeerStart?0:THREE.MathUtils.lerp(.10,.46,(level-DIFFICULTY.aggressiveVeerStart)/(DIFFICULTY.maxLevel-DIFFICULTY.aggressiveVeerStart)),
     weaveRate:THREE.MathUtils.lerp(.55,1.35,progress),
     laneChangeChance:level<DIFFICULTY.laneChangeStart?0:THREE.MathUtils.lerp(.08,.42,THREE.MathUtils.clamp(laneProgress,0,1)),
