@@ -31,8 +31,6 @@ export function buildEnvironment(scene:THREE.Scene):EnvironmentController{
   root.name='environment';
   addSky(scene);
 
-  // Ground and shoulders are physical geometry. All decorative scenery stays outside a
-  // protected road corridor so no mountain/rock can visually clip through the carriageway.
   const desert=new THREE.Mesh(new THREE.PlaneGeometry(240,1250),new THREE.MeshStandardMaterial({color:0xc39158,roughness:1}));
   desert.rotation.x=-Math.PI/2;desert.position.set(0,-.075,-450);desert.receiveShadow=true;root.add(desert);
 
@@ -45,7 +43,6 @@ export function buildEnvironment(scene:THREE.Scene):EnvironmentController{
   const scrollables:ScrollEntry[]=[];
   const register=(object:THREE.Object3D,wrapMin:number,wrapMax:number)=>scrollables.push({object,wrapMin,wrapMax});
 
-  // Near roadside detail. Minimum lateral distance is > 7.5m from road centre.
   for(let i=0;i<40;i++){
     const cluster=new THREE.Group();
     cluster.position.z=-24-i*15;
@@ -62,18 +59,18 @@ export function buildEnvironment(scene:THREE.Scene):EnvironmentController{
     const rock=new THREE.Mesh(new THREE.DodecahedronGeometry(.70+(i%5)*.12,0),rockMats[i%rockMats.length]);
     rock.scale.set(1.55,.72,1.05);rock.position.set(side*(12+(i%4)*2.2),.4,-2.4);rock.rotation.set(.15,i*.8,.1);rock.castShadow=true;cluster.add(rock);
 
-    // Low scrub uses actual volume rather than a vertical billboard.
     const scrubMat=mat(i%2?0x78613f:0x6b583c,1);
     for(let n=0;n<3;n++){
       const scrub=new THREE.Mesh(new THREE.IcosahedronGeometry(.32+n*.05,0),scrubMat);
       scrub.scale.set(1.5,.45,1);scrub.position.set(-side*(9.4+(i%5)+n*.35),.13,3.7+n*.35);scrub.rotation.y=.3*i+n;cluster.add(scrub);
     }
 
-    root.add(cluster);register(cluster,-600,12);
+    root.add(cluster);register(cluster,-600,18);
   }
 
-  // Distant mesas are deliberately kept far outside the protected corridor and recycle
-  // before reaching the player/camera. They provide parallax but can never sweep over the road.
+  // Mesas remain far outside the road corridor, so they can safely pass the player.
+  // Recycle only after they are behind the chase camera; this removes the visible pop
+  // that testers saw when the old -48 m wrap point deleted scenery in front of them.
   for(let i=0;i<14;i++){
     const group=new THREE.Group();
     group.position.z=-85-i*42;
@@ -83,17 +80,14 @@ export function buildEnvironment(scene:THREE.Scene):EnvironmentController{
     mesa.scale.set(1.45+(i%3)*.35,1,1.05);mesa.position.set(side*lateral,2.1,0);mesa.rotation.y=i*.41;mesa.castShadow=true;mesa.receiveShadow=true;group.add(mesa);
     const shelf=new THREE.Mesh(new THREE.CylinderGeometry(2.6+i%2,4.0+i%2,1.4,7),rockMats[(i+1)%rockMats.length]);
     shelf.position.set(side*(lateral+3.8),4.2,-1.2);shelf.rotation.y=.2+i*.33;group.add(shelf);
-    root.add(group);register(group,-650,-48);
+    root.add(group);register(group,-650,48);
   }
 
-  // Overhead gantries remain real 3D geometry but have enough clearance for the chase camera.
-  // They recycle after the rider passes them and before they can collide with/occlude the camera.
   for(let i=0;i<4;i++){
     const gantry=new THREE.Group();gantry.position.z=-125-i*150;
     const postL=box(.24,8.2,.28,0x50504b);postL.position.set(-5.15,4.1,0);gantry.add(postL);
     const postR=postL.clone();postR.position.x=5.15;gantry.add(postR);
     const beam=box(10.6,.24,.30,0x50504b);beam.position.set(0,8.05,0);gantry.add(beam);
-    // Sign is high and offset, leaving the centre of the road/camera sightline open.
     const sign=box(4.0,1.05,.16,0x3f5f4f);sign.position.set(1.7,7.35,.02);gantry.add(sign);
     const signAccent=box(.95,.08,.18,0xb85c24);signAccent.position.set(.62,7.77,.04);gantry.add(signAccent);
     root.add(gantry);register(gantry,-640,4.0);

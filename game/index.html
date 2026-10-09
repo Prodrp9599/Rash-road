@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="theme-color" content="#18130f" />
-    <title>Rash Roads — v0.9.2 Fair Pressure</title>
+    <title>Rash Roads — v0.9.3 Polish & Replay</title>
   </head>
   <body>
     <div id="app">
@@ -12,8 +12,8 @@
         <div class="hud-top">
           <div class="stat-chip">ROAD <strong id="distance">0.00 km</strong></div>
           <div class="stat-chip">HEAT <strong id="heat">1/8</strong></div>
-          <div class="stat-chip">NEAR <strong id="near">0</strong></div>
-          <div class="stat-chip">HITS <strong id="hits">0</strong></div>
+          <div class="stat-chip">SCORE <strong id="score">0</strong></div>
+          <div class="stat-chip">STREAK <strong id="combo">—</strong></div>
           <div class="speed-chip"><strong id="speed">0</strong><span>KM/H</span></div>
         </div>
 
@@ -23,15 +23,44 @@
             <div class="pursuit-track"><i id="pursuitFill"></i><span class="strike s1"></span><span class="strike s2"></span></div>
             <small>CLEAN RIDING PUSHES THEM BACK</small>
           </div>
-          <div class="meter-row"><span>N2O</span><div class="meter nitro"><i id="nitro"></i></div></div>
+          <div class="meter-row"><span>N2O</span><div class="meter nitro"><i id="nitro"></i></div><b id="nitroStatus" class="nitro-status"></b></div>
         </div>
 
-        <div class="brand">RASH <b>ROADS</b><small>v0.9.2 // FAIR PRESSURE</small></div>
-        <div class="hint">A / D steer · S / ↓ brake · SHIFT nitro · R reset</div>
+        <div class="brand">RASH <b>ROADS</b><small>v0.9.3 // POLISH + REPLAY</small></div>
+        <div class="hint">A / D steer · S / ↓ brake · SHIFT nitro · R restart</div>
         <div id="bonus" class="bonus">NEAR MISS <strong>NITRO +</strong></div>
+        <div id="milestone" class="milestone">KM 1 • HEAT UP</div>
         <div id="crashStatus" class="crash-status">WIPEOUT</div>
         <div id="impact" class="impact"></div>
-        <div id="busted" class="busted"><strong>BUSTED</strong><span>K9 PATROL CAUGHT UP</span></div>
+
+        <div id="startScreen" class="run-screen on">
+          <div class="run-panel start-panel">
+            <div class="kicker">K9 PATROL IS ON YOUR TAIL</div>
+            <h1>RASH <em>ROADS</em></h1>
+            <p>Thread traffic. Build near-miss streaks. Save nitro for the moments that matter.</p>
+            <div class="best-row"><span>BEST ROAD <strong id="startBestDistance">0.00 km</strong></span><span>BEST SCORE <strong id="startBestScore">0</strong></span></div>
+            <button id="startButton" type="button">START RUN</button>
+            <small>SPACE / CLICK TO RIDE · SOUND ON</small>
+          </div>
+        </div>
+
+        <div id="busted" class="busted run-screen">
+          <div class="run-panel gameover-panel">
+            <div class="kicker">K9 PATROL CAUGHT UP</div>
+            <h2>BUSTED</h2>
+            <div id="newBest" class="new-best">NEW BEST</div>
+            <div class="summary-grid">
+              <span>ROAD<strong id="endDistance">0.00 km</strong></span>
+              <span>BEST<strong id="endBestDistance">0.00 km</strong></span>
+              <span>SCORE<strong id="endScore">0</strong></span>
+              <span>BEST SCORE<strong id="endBestScore">0</strong></span>
+              <span>NEAR MISSES<strong id="endNear">0</strong></span>
+              <span>HITS<strong id="endHits">0</strong></span>
+            </div>
+            <button id="retryButton" type="button">RIDE AGAIN</button>
+            <small>SPACE / CLICK FOR ONE MORE RUN</small>
+          </div>
+        </div>
       </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
