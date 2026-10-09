@@ -4,12 +4,17 @@ import type { TrafficKind } from './config';
 export type TrafficEntity = {
   kind: TrafficKind;
   lane: number;
+  targetLane: number;
   x: number;
   z: number;
   speed: number;
   desiredSpeed: number;
   hit: boolean;
   near: boolean;
+  veerPhase: number;
+  veerRate: number;
+  veerAmp: number;
+  veerCooldown: number;
   object: Object3D;
 };
 
