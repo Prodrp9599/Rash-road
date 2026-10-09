@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="theme-color" content="#18130f" />
-    <title>Rash Roads — v0.9.1 External Playtest</title>
+    <title>Rash Roads — v0.9.2 Fair Pressure</title>
   </head>
   <body>
     <div id="app">
@@ -13,20 +13,20 @@
           <div class="stat-chip">ROAD <strong id="distance">0.00 km</strong></div>
           <div class="stat-chip">HEAT <strong id="heat">1/8</strong></div>
           <div class="stat-chip">NEAR <strong id="near">0</strong></div>
-          <div class="stat-chip">CRASHES <strong id="hits">0</strong></div>
+          <div class="stat-chip">HITS <strong id="hits">0</strong></div>
           <div class="speed-chip"><strong id="speed">0</strong><span>KM/H</span></div>
         </div>
 
         <div class="meter-stack">
           <div id="pursuit" class="pursuit-card safe">
-            <div class="pursuit-head"><span>K9 PATROL</span><strong id="pursuitLabel">58 m</strong></div>
-            <div class="pursuit-track"><i id="pursuitFill"></i><b class="cop-marker">★</b></div>
-            <small>KEEP THE GAP OPEN</small>
+            <div class="pursuit-head"><span>K9 PATROL</span><strong id="pursuitLabel">CLEAR</strong></div>
+            <div class="pursuit-track"><i id="pursuitFill"></i><span class="strike s1"></span><span class="strike s2"></span></div>
+            <small>CLEAN RIDING PUSHES THEM BACK</small>
           </div>
           <div class="meter-row"><span>N2O</span><div class="meter nitro"><i id="nitro"></i></div></div>
         </div>
 
-        <div class="brand">RASH <b>ROADS</b><small>v0.9.1 // PLAYTEST</small></div>
+        <div class="brand">RASH <b>ROADS</b><small>v0.9.2 // FAIR PRESSURE</small></div>
         <div class="hint">A / D steer · S / ↓ brake · SHIFT nitro · R reset</div>
         <div id="bonus" class="bonus">NEAR MISS <strong>NITRO +</strong></div>
         <div id="crashStatus" class="crash-status">WIPEOUT</div>
