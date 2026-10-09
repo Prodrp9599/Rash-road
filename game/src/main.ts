@@ -3,6 +3,8 @@ import * as THREE from 'three';
 import { animateRider, createModel, setNitroVisual, spinWheels } from './models';
 import { addLighting, buildEnvironment } from './environment';
 import { createDustSystem } from './effects';
+import { CHASE, applyPotholePenalty, applyTrafficPenalty, chaseLevel, createChaseState, resetChase, rewardNearMiss, updateChase } from './chase';
+import { createPolicePursuer, updatePolicePursuer } from './police';
 import { LANES, PLAYER, TRAFFIC, type TrafficKind } from './config';
 import type { TrafficEntity, PotholeEntity } from './types';
 
@@ -48,6 +50,8 @@ const player=createModel('player');
 player.scale.setScalar(1.06);
 player.position.y=.02;
 scene.add(player);
+const police=createPolicePursuer();
+scene.add(police);
 const dust=createDustSystem(scene);
 
 const traffic:TrafficEntity[]=[];
@@ -59,8 +63,7 @@ function chooseSpawn(t:TrafficEntity,baseZ:number){
   for(let attempt=0;attempt<8;attempt++){
     lane=Math.floor(rnd()*3);
     z=baseZ-rnd()*40;
-    const candidateKind=t.kind;
-    const candidateLength=TRAFFIC[candidateKind].length;
+    const candidateLength=TRAFFIC[t.kind].length;
     const blocked=traffic.some(other=>{
       if(other===t||other.lane!==lane)return false;
       const safe=(candidateLength+TRAFFIC[other.kind].length)*.5+7;
@@ -102,13 +105,17 @@ for(let i=0;i<3;i++){
   object.position.set(p.x,.02,p.z);scene.add(object);potholes.push(p);
 }
 
-let playerX=0,speed=28,hp=100,n2o=100,distance=0,hits=0,near=0,inv=0,steer=0,wobble=0,cameraKick=0,impactSide=0;
-const ui={speed:el('speed'),distance:el('distance'),hits:el('hits'),near:el('near'),hp:el('hp'),nitro:el('nitro'),impact:el('impact')};
+let playerX=0,speed=28,n2o=100,distance=0,hits=0,near=0,inv=0,steer=0,wobble=0,cameraKick=0,impactSide=0;
+const chase=createChaseState();
+const ui={
+  speed:el('speed'),distance:el('distance'),hits:el('hits'),near:el('near'),nitro:el('nitro'),impact:el('impact'),
+  pursuit:el('pursuit'),pursuitLabel:el('pursuitLabel'),pursuitFill:el('pursuitFill'),busted:el('busted'),
+};
 function el(id:string){return document.getElementById(id)!}
 function flash(){ui.impact.classList.remove('on');void ui.impact.clientWidth;ui.impact.classList.add('on')}
 
 function resolveContact(o:TrafficEntity){
-  if(inv>0||o.hit)return;
+  if(chase.busted||inv>0||o.hit)return;
   const s=TRAFFIC[o.kind];
   const dx=Math.abs(playerX-o.x);
   const lateralThreshold=PLAYER.width+s.width;
@@ -117,9 +124,6 @@ function resolveContact(o:TrafficEntity){
   if(Math.abs(o.z)<longitudinalThreshold&&dx<lateralThreshold){
     const penetration=1-dx/lateralThreshold;
     const side=Math.abs(o.z)<Math.min(.95,longitudinalThreshold*.42)&&penetration<.38;
-    const mult=penetration<.18?.20:penetration<.55?.62:1;
-    hp=Math.max(0,hp-s.damage*mult);
-
     const direction=Math.sign(playerX-o.x||1);
     const shove=o.kind==='truck'?.44:o.kind==='car'?.29:.18;
     playerX+=direction*shove*(.48+penetration);
@@ -129,6 +133,7 @@ function resolveContact(o:TrafficEntity){
     cameraKick=Math.max(cameraKick,side?.07:.17);
     impactSide=direction;
     o.object.userData.wobble=-direction*(side?.055:.13);
+    applyTrafficPenalty(chase,o.kind,side?.15+penetration*.25:penetration);
     hits++;
     o.hit=true;
     inv=s.postHitInv;
@@ -136,6 +141,7 @@ function resolveContact(o:TrafficEntity){
   }else if(!o.near&&o.z>-1.15&&o.z<1.15&&speed>34&&dx<lateralThreshold+.55&&dx>=lateralThreshold){
     near++;
     o.near=true;
+    rewardNearMiss(chase);
   }
 }
 
@@ -175,8 +181,10 @@ function scrollWorld(dt:number){
 }
 
 function resetRun(){
-  hp=100;n2o=100;speed=24;distance=0;hits=0;near=0;playerX=0;steer=0;wobble=0;cameraKick=0;inv=.9;
+  resetChase(chase);n2o=100;speed=24;distance=0;hits=0;near=0;playerX=0;steer=0;wobble=0;cameraKick=0;impactSide=0;inv=.9;
+  police.visible=false;police.position.set(0,0,8.2);
   traffic.forEach((o,i)=>resetTraffic(o,-48-i*20));
+  potholes.forEach((p,i)=>{p.z=-125-i*115;p.x=LANES[Math.floor(rnd()*3)]+(rnd()-.5)*.5;p.hit=false});
 }
 
 function update(dt:number){
@@ -184,9 +192,9 @@ function update(dt:number){
   wobble*=Math.pow(.055,dt);
   cameraKick*=Math.pow(.028,dt);
 
-  const left=keys.has('KeyA')||keys.has('ArrowLeft');
-  const right=keys.has('KeyD')||keys.has('ArrowRight');
-  const brake=keys.has('KeyS')||keys.has('ArrowDown');
+  const left=!chase.busted&&(keys.has('KeyA')||keys.has('ArrowLeft'));
+  const right=!chase.busted&&(keys.has('KeyD')||keys.has('ArrowRight'));
+  const brake=!chase.busted&&(keys.has('KeyS')||keys.has('ArrowDown'));
   steer+=(right?1:0)-(left?1:0);
   steer*=.80;
 
@@ -194,13 +202,18 @@ function update(dt:number){
   playerX+=steer*steerRate*dt;
   playerX=THREE.MathUtils.clamp(playerX,-PLAYER.sideClamp,PLAYER.sideClamp);
 
-  const nitro=(keys.has('ShiftLeft')||keys.has('ShiftRight'))&&n2o>0;
-  if(nitro){speed+=PLAYER.nitroAcceleration*dt;n2o=Math.max(0,n2o-23*dt)}
-  else{n2o=Math.min(100,n2o+5.5*dt);speed+=PLAYER.baseAcceleration*dt}
-  if(brake)speed-=PLAYER.brakeDeceleration*dt;
-  speed=THREE.MathUtils.clamp(speed,PLAYER.minSpeed,nitro?PLAYER.nitroMaxSpeed:PLAYER.maxSpeed);
+  const nitro=!chase.busted&&(keys.has('ShiftLeft')||keys.has('ShiftRight'))&&n2o>0;
+  if(chase.busted){
+    speed=Math.max(8,speed-22*dt);
+  }else{
+    if(nitro){speed+=PLAYER.nitroAcceleration*dt;n2o=Math.max(0,n2o-23*dt)}
+    else{n2o=Math.min(100,n2o+5.5*dt);speed+=PLAYER.baseAcceleration*dt}
+    if(brake)speed-=PLAYER.brakeDeceleration*dt;
+    speed=THREE.MathUtils.clamp(speed,PLAYER.minSpeed,nitro?PLAYER.nitroMaxSpeed:PLAYER.maxSpeed);
+  }
   distance+=speed*dt;
 
+  updateChase(chase,dt,speed,distance,nitro,brake);
   scrollWorld(dt);
   updateTrafficFollowing(dt);
 
@@ -219,16 +232,14 @@ function update(dt:number){
     p.z+=speed*dt;
     if(p.z>8){p.z=Math.min(...potholes.map(x=>x.z))-105-rnd()*85;p.x=LANES[Math.floor(rnd()*3)]+(rnd()-.5)*.55;p.hit=false}
     p.object.position.set(p.x,.02,p.z);
-    if(!p.hit&&inv<=0&&Math.abs(p.z)<1.05&&Math.abs(playerX-p.x)<.48){
-      hp=Math.max(0,hp-2);speed*=.94;p.hit=true;inv=.4;wobble+=(rnd()>.5?1:-1)*.07;cameraKick=.07;flash();
+    if(!chase.busted&&!p.hit&&inv<=0&&Math.abs(p.z)<1.05&&Math.abs(playerX-p.x)<.48){
+      speed*=.94;p.hit=true;inv=.4;wobble+=(rnd()>.5?1:-1)*.07;cameraKick=.07;applyPotholePenalty(chase);flash();
     }
   }
 
-  if(hp<=0)resetRun();
-
   const now=performance.now()/1000;
   const speedN=THREE.MathUtils.clamp((speed-PLAYER.minSpeed)/(PLAYER.nitroMaxSpeed-PLAYER.minSpeed),0,1);
-  const suspension=Math.sin(now*(7.5+speedN*8))* (.004+.012*speedN);
+  const suspension=Math.sin(now*(7.5+speedN*8))*(.004+.012*speedN);
   player.position.x=THREE.MathUtils.lerp(player.position.x,playerX,.22);
   player.position.y=.02+suspension+cameraKick*.025;
   player.rotation.z=THREE.MathUtils.lerp(player.rotation.z,-steer*.09+wobble,.18);
@@ -240,6 +251,7 @@ function update(dt:number){
 
   if(speed>18&&rnd()<dt*(7+speed*.22))dust.spawn(player.position.x,player.position.z,speed,steer,nitro);
   dust.update(dt);
+  updatePolicePursuer(police,chase,playerX,now,dt,Math.max(speed,28));
 
   camera.position.x=THREE.MathUtils.lerp(camera.position.x,playerX*.16,.08)+Math.sin(now*43)*cameraKick*impactSide;
   camera.position.y=4.55+Math.min(.43,(speed-28)*.014)+cameraKick*.12;
@@ -247,6 +259,8 @@ function update(dt:number){
   camera.lookAt(playerX*.24,.80,-24.5);
   const targetFov=56+speedN*5.5+(nitro?2.2:0);
   if(Math.abs(camera.fov-targetFov)>.04){camera.fov=THREE.MathUtils.lerp(camera.fov,targetFov,.08);camera.updateProjectionMatrix()}
+
+  if(chase.busted&&chase.bustedFor>=CHASE.restartDelay)resetRun();
 }
 
 function drawUI(){
@@ -254,8 +268,12 @@ function drawUI(){
   ui.distance.textContent=(distance/1000).toFixed(2)+' km';
   ui.hits.textContent=String(hits);
   ui.near.textContent=String(near);
-  (ui.hp as HTMLElement).style.width=hp+'%';
   (ui.nitro as HTMLElement).style.width=n2o+'%';
+  const level=chaseLevel(chase);
+  ui.pursuit.className='pursuit-card '+level;
+  ui.pursuitLabel.textContent=Math.max(0,Math.round(chase.gap))+' m';
+  (ui.pursuitFill as HTMLElement).style.width=(chase.gap/CHASE.maxGap*100).toFixed(1)+'%';
+  ui.busted.classList.toggle('on',chase.busted);
 }
 
 function frame(){
@@ -271,9 +289,12 @@ frame();
   getState:()=>({
     playerX,
     speedKph:speed*3.6,
-    hp,n2o,
+    n2o,
     distanceKm:distance/1000,
     hits,near,
+    pursuitGap:chase.gap,
+    pursuitLevel:chaseLevel(chase),
+    busted:chase.busted,
     traffic:traffic.map(o=>({kind:o.kind,lane:o.lane,x:o.x,z:o.z,speed:o.speed,desiredSpeed:o.desiredSpeed})),
   }),
   reset:resetRun,
