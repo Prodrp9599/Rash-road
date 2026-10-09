@@ -49,6 +49,10 @@ function tubeBetween(a:THREE.Vector3,b:THREE.Vector3,r:number,m:THREE.Material,s
   return mesh;
 }
 function sphere(r:number,m:THREE.Material,segments=20){return new THREE.Mesh(new THREE.SphereGeometry(r,segments,Math.max(10,segments/2)),m)}
+function indicator(name:string,x:number,y:number,z:number){
+  const material=new THREE.MeshStandardMaterial({color:0xd78322,roughness:.38,metalness:.12,emissive:0xff8a18,emissiveIntensity:.12});
+  const light=box(.22,.12,.055,material);light.name=name;light.position.set(x,y,z);return light;
+}
 
 export function createRoad(){
   const g=new THREE.Group();
@@ -70,10 +74,21 @@ export function createGuardrail(){
 
 export function createPothole(){
   const g=new THREE.Group();
-  const hole=new THREE.Mesh(new THREE.CylinderGeometry(.5,.64,.035,20),new THREE.MeshStandardMaterial({color:0x171615,roughness:1}));
-  hole.scale.z=.62;g.add(hole);
-  const rim=new THREE.Mesh(new THREE.TorusGeometry(.52,.055,7,18),new THREE.MeshStandardMaterial({color:0x292624,roughness:1}));
-  rim.rotation.x=Math.PI/2;rim.scale.z=.64;rim.position.y=.025;g.add(rim);
+  const hole=new THREE.Mesh(new THREE.CylinderGeometry(.52,.68,.04,22),new THREE.MeshStandardMaterial({color:0x11100f,roughness:1}));
+  hole.scale.z=.64;hole.position.y=.004;g.add(hole);
+  const rim=new THREE.Mesh(new THREE.TorusGeometry(.55,.07,8,22),new THREE.MeshStandardMaterial({color:0x514137,roughness:1}));
+  rim.rotation.x=Math.PI/2;rim.scale.z=.66;rim.position.y=.028;g.add(rim);
+  // Stylized broken road-paint fragments make the hazard readable at speed without
+  // turning it into a floating UI marker.
+  const hazardMat=new THREE.MeshStandardMaterial({color:0xd98532,roughness:.92,emissive:0x5b2607,emissiveIntensity:.18});
+  for(let i=0;i<8;i++){
+    if(i%2===1)continue;
+    const a=i/8*Math.PI*2;
+    const chip=box(.25,.022,.075,hazardMat);
+    chip.position.set(Math.cos(a)*.72,.035,Math.sin(a)*.47);
+    chip.rotation.y=-a;
+    g.add(chip);
+  }
   return shadow(g);
 }
 
@@ -81,20 +96,25 @@ export function createCar(color=0x345f78){
   const bodyMat=new THREE.MeshStandardMaterial({color,roughness:.58,metalness:.2});
   const g=new THREE.Group();
   const body=box(1.65,.52,3.65,bodyMat);body.position.y=.55;g.add(body);
-  const cabin=box(1.45,.55,1.8,bodyMat);cabin.position.set(0,1.0,-.15);g.add(cabin);
-  const windshield=box(1.32,.36,.04,MAT.glass);windshield.position.set(0,1.02,.77);windshield.rotation.x=-.32;g.add(windshield);
-  const rearGlass=box(1.25,.3,.04,MAT.glass);rearGlass.position.set(0,1.0,-1.06);rearGlass.rotation.x=.3;g.add(rearGlass);
+  const cabin=box(1.45,.55,1.8,bodyMat);cabin.position.set(0,1.0,.15);g.add(cabin);
+  // Forward is -Z throughout Rash Roads, matching the player and civilian bikes.
+  const windshield=box(1.32,.36,.04,MAT.glass);windshield.position.set(0,1.02,-.77);windshield.rotation.x=.32;g.add(windshield);
+  const rearGlass=box(1.25,.3,.04,MAT.glass);rearGlass.position.set(0,1.0,1.06);rearGlass.rotation.x=-.3;g.add(rearGlass);
   for(const x of [-.72,.72])for(const z of [-1.18,1.18]){const w=wheel(.31,.18);w.position.set(x,.32,z);g.add(w)}
-  const bumper=box(1.72,.16,.15,MAT.darkMetal);bumper.position.set(0,.42,1.83);g.add(bumper);
+  const frontBumper=box(1.72,.16,.15,MAT.darkMetal);frontBumper.position.set(0,.42,-1.83);g.add(frontBumper);
+  const rearBumper=box(1.70,.12,.12,MAT.darkMetal);rearBumper.position.set(0,.40,1.83);g.add(rearBumper);
+  g.add(indicator('indicator-left',-.58,.63,1.86),indicator('indicator-right',.58,.63,1.86));
   return shadow(g);
 }
 
 export function createTruck(){
   const g=new THREE.Group();
-  const cab=box(2.05,1.25,1.7,MAT.rust);cab.position.set(0,.95,1.35);g.add(cab);
-  const cargo=box(2.2,2.05,3.65,MAT.cream);cargo.position.set(0,1.38,-1.25);g.add(cargo);
-  const wind=box(1.7,.48,.04,MAT.glass);wind.position.set(0,1.22,2.21);g.add(wind);
-  for(const x of [-.92,.92])for(const z of [-2.0,.8,1.65]){const w=wheel(.39,.23);w.position.set(x,.39,z);g.add(w)}
+  // Cab is at -Z (forward); cargo/rear is +Z toward the player approaching from behind.
+  const cab=box(2.05,1.25,1.7,MAT.rust);cab.position.set(0,.95,-1.35);g.add(cab);
+  const cargo=box(2.2,2.05,3.65,MAT.cream);cargo.position.set(0,1.38,1.25);g.add(cargo);
+  const wind=box(1.7,.48,.04,MAT.glass);wind.position.set(0,1.22,-2.21);g.add(wind);
+  for(const x of [-.92,.92])for(const z of [2.0,-.8,-1.65]){const w=wheel(.39,.23);w.position.set(x,.39,z);g.add(w)}
+  g.add(indicator('indicator-left',-.78,.72,3.08),indicator('indicator-right',.78,.72,3.08));
   return shadow(g);
 }
 
@@ -198,6 +218,14 @@ export function setNitroVisual(root:THREE.Object3D,active:boolean,pulse=1){
   if(!flame)return;
   flame.visible=active;
   if(active)flame.scale.setScalar(.85+.28*pulse);
+}
+
+export function setTurnIndicator(root:THREE.Object3D,dir:-1|0|1,lit:boolean){
+  for(const [name,side] of [['indicator-left',-1],['indicator-right',1]] as const){
+    const light=root.getObjectByName(name) as THREE.Mesh|undefined;
+    const material=light?.material as THREE.MeshStandardMaterial|undefined;
+    if(material)material.emissiveIntensity=lit&&dir===side?5.2:.12;
+  }
 }
 
 export function animateRider(root:THREE.Object3D,time:number,steer:number,speed:number){
