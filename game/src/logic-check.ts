@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CHASE, createChaseState, updateChase } from './chase';
+import { PLAYER } from './config';
 import { createCrashState, startCrash, updateCrash } from './crash';
 import { DIFFICULTY, difficultyForDistance } from './difficulty';
 
@@ -23,6 +24,19 @@ assert(hard.gap<easy.gap,'max heat must apply more pursuit pressure');
 assert(easy.gap>=0&&easy.gap<=CHASE.maxGap,'easy chase gap out of bounds');
 assert(hard.gap>=0&&hard.gap<=CHASE.maxGap,'hard chase gap out of bounds');
 
+// External playtest tuning: by Heat 7-8, normal max-speed riding should no longer
+// rebuild a large safety buffer. Heat 8 should slowly lose gap without nitro.
+const heat7=createChaseState(),heat8=createChaseState(),heat8Nitro=createChaseState();
+const start7=heat7.gap,start8=heat8.gap,start8Nitro=heat8Nitro.gap;
+for(let i=0;i<300;i++){
+  updateChase(heat7,1/60,PLAYER.maxSpeed,7,false,false);
+  updateChase(heat8,1/60,PLAYER.maxSpeed,8,false,false);
+  updateChase(heat8Nitro,1/60,PLAYER.nitroMaxSpeed,8,true,false);
+}
+assert(heat7.gap-start7<1.0,'Heat 7 normal top speed should only barely open the gap');
+assert(heat8.gap<start8,'Heat 8 normal top speed should slowly lose pursuit gap');
+assert(heat8Nitro.gap>start8Nitro,'Heat 8 nitro must still open pursuit distance');
+
 // Ejection lifecycle must always recover back to mounted without external intervention.
 const scene=new THREE.Scene();
 const player=new THREE.Group();
@@ -43,5 +57,8 @@ console.log('Rash Roads logic checks passed:',{
   maxDifficulty:DIFFICULTY.maxLevel,
   easyGap:Number(easy.gap.toFixed(2)),
   hardGap:Number(hard.gap.toFixed(2)),
+  heat7TopSpeedGap:Number(heat7.gap.toFixed(2)),
+  heat8TopSpeedGap:Number(heat8.gap.toFixed(2)),
+  heat8NitroGap:Number(heat8Nitro.gap.toFixed(2)),
   crashRecovery:'mounted',
 });
