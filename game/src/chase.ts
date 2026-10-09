@@ -12,6 +12,7 @@ export const CHASE={
   restartDelay:2.15,
   hitPenalty:{bike:4.5,car:8.5,truck:13.5} satisfies Record<TrafficKind,number>,
   potholePenalty:3.0,
+  ejectionPenalty:4.0,
 };
 
 export type ChaseState={
@@ -51,23 +52,27 @@ export function applyPotholePenalty(state:ChaseState){
   return CHASE.potholePenalty;
 }
 
-export function rewardNearMiss(state:ChaseState){
-  if(state.busted)return;
-  state.gap=Math.min(CHASE.maxGap,state.gap+.35);
+export function applyEjectionPenalty(state:ChaseState){
+  if(state.busted)return 0;
+  state.gap=Math.max(0,state.gap-CHASE.ejectionPenalty);
+  state.lastPenalty=Math.max(state.lastPenalty,CHASE.ejectionPenalty);
+  if(state.gap<=0)state.busted=true;
+  return CHASE.ejectionPenalty;
 }
 
 export function updateChase(
   state:ChaseState,
   dt:number,
   speed:number,
-  distanceMeters:number,
+  difficultyLevel:number,
   nitro:boolean,
   braking:boolean,
 ){
   if(state.busted){state.bustedFor+=dt;return}
 
-  // Difficulty rises gradually with run distance, but never spikes suddenly.
-  const distancePressure=Math.min(.82,(distanceMeters/1000)*.055);
+  // Difficulty is deliberately stepped: every completed kilometre raises pressure one level,
+  // capped by the director in difficulty.ts. This is easier for players to feel and for us to tune.
+  const stepPressure=Math.max(0,difficultyLevel-1)*.11;
   let delta=0;
   if(speed>=CHASE.escapePace){
     const fast=THREE.MathUtils.clamp((speed-CHASE.escapePace)/20,0,1);
@@ -82,7 +87,7 @@ export function updateChase(
 
   if(nitro)delta+=.72;
   if(braking)delta-=.48;
-  delta-=distancePressure;
+  delta-=stepPressure;
 
   state.pressure=THREE.MathUtils.lerp(state.pressure,-delta,.08);
   state.gap=THREE.MathUtils.clamp(state.gap+delta*dt,0,CHASE.maxGap);
